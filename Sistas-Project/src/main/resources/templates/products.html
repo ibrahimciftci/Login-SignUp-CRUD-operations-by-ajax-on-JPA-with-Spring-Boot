@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>All Products</title>
+<link rel="stylesheet" type="text/css"
+	href="/webjars/bootstrap/css/bootstrap.min.css" />
+<link rel="stylesheet" href="styles.css">
+
+<link rel="stylesheet" type="text/css"
+	href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css" />
+<link rel="stylesheet" type="text/css"
+	href="https://cdn.datatables.net/v/bs4-4.6.0/jq-3.6.0/jszip-2.5.0/dt-1.11.5/b-2.2.2/b-colvis-2.2.2/b-html5-2.2.2/b-print-2.2.2/datatables.min.css" />
+
+<script type="text/javascript"
+	src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script type="text/javascript"
+	src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script type="text/javascript"
+	src="https://cdn.datatables.net/v/bs4-4.6.0/jq-3.6.0/jszip-2.5.0/dt-1.11.5/b-2.2.2/b-colvis-2.2.2/b-html5-2.2.2/b-print-2.2.2/datatables.min.js"></script>
+<script type="text/javascript"
+	src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/js/bootstrap.min.js"></script>
+</head>
+
+<style>
+#logout {
+	float: right;
+}
+
+body {
+	padding: 30px;
+}
+</style>
+
+<body>
+	<div class="container text-center">
+		<div id="logout" class="row">
+			<div>
+				<form th:action="@{/logout}" method="post">
+					<p>
+						Hoşgeldiniz <b>[[${#request.userPrincipal.principal.fullName}]]</b>
+					</p>
+					<input type="submit" value="Sign Out" />
+				</form>
+				<br>
+			</div>
+		</div>
+		<br>
+		<div class="row">
+		<button class="btn btn-warning" style="width:100px!important" onclick="reloadTable()">Yenile</button>
+		<button class="btn btn-success" style="width:100px!important;margin-left:5px;" onclick="(function(){resetForm();showForm();actionType='create'})();">Yeni Ürün</button>
+			<table id="table" class="table table-striped table-bordered">
+				<thead class="thead-dark">
+					<tr>
+						<th>Product ID</th>
+						<th>Product Name</th>
+						<th>Product Model</th>
+						<th>Product Code</th>
+						<th>Product Price</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+
+			</table>
+			<div id="productForm" style="display: none">
+				<div class="form-group">
+					<input type="hidden"
+						class="form-control" id="productId">
+					<label for="productName">Product Name</label> 
+					<input type="text"
+						class="form-control" id="productName">
+				</div>
+				<div class="form-group">
+					<label for="productModel">Product Model</label> <input type="text"
+						class="form-control" id="productModel">
+
+				</div>
+				<div class="form-group">
+					<label for="productCode">Product Code</label> <input type="text"
+						class="form-control" id="productCode">
+
+				</div>
+				<div class="form-group">
+					<label for="productPrice">Product Price</label> <input type="text"
+						class="form-control" id="productPrice">
+
+				</div>
+				<div id="editButton">
+					<button class="btn btn-primary" onclick="validation()">Save</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		var listProductUrl = "http://localhost:8080/list_products"
+		var getProductUrl = "http://localhost:8080/product/"
+		var deleteProductUrl = 'http://localhost:8080/product/delete/';
+		var updateProductUrl = 'http://localhost:8080/product/update/';
+		var createProductUrl = 'http://localhost:8080/product/create/';
+		var actionType='';
+		
+		function validation(){
+			var errorMessages='';
+			var productModel=document.getElementById('productModel').value;
+			var productName=document.getElementById('productName').value;
+			var productPrice=document.getElementById('productPrice').value;
+			var productCode=document.getElementById('productCode').value;
+			let priceValue = parseFloat(productPrice);
+			var regExp = /[a-zA-Z]/g;
+			
+			if(productName=='')
+				errorMessages+='Product name boş bırakılamaz \n'
+			if(productModel=='')	
+				errorMessages+='Product model boş bırakılamaz \n'
+			if(productCode=='')	
+						errorMessages+='Product code boş bırakılamaz \n'
+			if(productPrice=='')	
+								errorMessages+='Product price boş bırakılamaz'
+			if(isNaN(priceValue) || regExp.test(productPrice))
+				errorMessages+='Product price alanı geçersiz lütfen kontrol ediniz'		
+			if(errorMessages!='')
+				alert(errorMessages)
+				
+			else
+				createOrUpdateProduct();
+				
+		}
+		
+		function deleteProduct(id){
+			let text = id+" idli kayıdı silmek istediğinize emin misiniz?";
+			  if (confirm(text) == true) {
+				  $.ajax(
+							{'url' : deleteProductUrl+id,
+							'method' : "Get",
+							'contentType' : 'application/json'
+									}).done(
+									function(data) 
+									{
+										alert(data);
+										reloadTable();
+									}
+									)}
+		}
+		
+		function createOrUpdateProduct(){
+			
+			var actionUrl='';
+			var data={};
+			
+			
+			var productModel=document.getElementById('productModel').value;
+			var productName=document.getElementById('productName').value;
+			var productPrice=document.getElementById('productPrice').value;
+			var productCode=document.getElementById('productCode').value;
+			
+			if(actionType=='update')
+			{
+				var productId=document.getElementById('productId').value;
+				actionUrl=updateProductUrl;
+				data={
+						"productId":productId,
+						"productModel":productModel,
+						"productName":productName,
+						"productPrice":productPrice,
+						"productCode":productCode
+				}
+			}
+				
+			else if(actionType=='create')
+			{
+				actionUrl=createProductUrl;
+				data={
+						"productModel":productModel,
+						"productName":productName,
+						"productPrice":productPrice,
+						"productCode":productCode
+				}
+			}
+			
+			$
+			.ajax({
+				'url' : actionUrl,
+				'data':JSON.stringify(data),
+				'method' : "POST",
+				'contentType' : 'application/json',
+				success: function(data){
+					alert(data.msg);
+					reloadTable();
+				}})
+		}
+		
+		function reloadTable(){
+			hideForm();
+			var datatable = $("#table").DataTable();
+			datatable.clear();
+			$.ajax({
+				'url' : listProductUrl,
+				'method' : "GET",
+				'contentType' : 'application/json'
+			}).done(
+					function(data) {
+						datatable.rows.add(data);
+					    datatable.draw();
+					})
+		}
+		function initializeTable(){
+			$.ajax({
+				'url' : listProductUrl,
+				'method' : "GET",
+				'contentType' : 'application/json'
+			}).done(
+					function(data) {
+						$('#table').dataTable(
+										{columnDefs : [ {
+												"targets" : "_all"
+											} ],
+											language : {
+												url : '//cdn.datatables.net/plug-ins/1.11.5/i18n/tr.json'
+											},
+											"aaData" : data,
+											"columns" : [
+													{
+														"data" : "productId"
+													},
+													{
+														"data" : "productName"
+													},
+													{
+														"data" : "productModel"
+													},
+													{
+														"data" : "productCode"
+													},
+													{
+														"data" : "productPrice"
+													},
+													{
+														"data" : "productId",
+														'width' : '20%',
+														render : function(
+																data,
+																type,
+																row) {
+															return '<button class="btn btn-success" onclick="setProduct('
+																	+ data
+																	+ ')">Edit</button>'+'<button class="btn btn-danger" style="margin-left:5px;" onclick="deleteProduct('
+																	+ data
+																	+ ')">Delete</button>'}}]
+})
+})
+		}
+
+		function setProduct(id) {
+			actionType='update';
+			$(document)
+			.ready(function() {
+				$.ajax(
+						{'url' : getProductUrl+id,
+						'method' : "GET",
+						'contentType' : 'application/json'
+								}).done(
+								function(data) 
+								{
+									$("#productId").val(data.productId);
+									$("#productModel").val(data.productModel);
+									$("#productName").val(data.productName);
+									$("#productPrice").val(data.productPrice);
+									$("#productCode").val(data.productCode);
+								})})
+								showForm();
+			
+		}
+		
+		function showForm(){
+			$("#table").css("display", "none");
+			$("#table_wrapper").css("display", "none");
+
+			$("#productForm").css("display", "block");
+		}
+		
+		function resetForm(){
+			$("#productId").val('');
+			$("#productModel").val('');
+			$("#productName").val('');
+			$("#productPrice").val('');
+			$("#productCode").val('');
+		}
+		
+		function hideForm(){
+			$("#table").css("display", "block");
+			$("#table_wrapper").css("display", "block");
+
+			$("#productForm").css("display", "none");
+		}
+		
+		$(document)
+				.ready(
+						function() {
+							initializeTable();
+							
+		})
+	</script>
+</body>
+</html>
